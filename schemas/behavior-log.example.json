@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0.0",
+  "encoding": "utf-8",
+  "sent_at": "2026-04-09T10:31:00Z",
+  "events": [
+    {
+      "session_id": "session_n8x4z9_1712641100",
+      "user_id": "user_玥_1001",
+      "page_url": "https://demo.example.com/cart",
+      "route": "/cart",
+      "event_type": "click",
+      "timestamp": "2026-04-09T10:30:00Z",
+      "element_id": "btn-checkout",
+      "intent_label": "start_checkout",
+      "coordinates": {
+        "x": 722.5,
+        "y": 418.2
+      },
+      "metadata": {
+        "device": "desktop",
+        "ab_group": "B"
+      }
+    },
+    {
+      "session_id": "session_n8x4z9_1712641100",
+      "user_id": "user_玥_1001",
+      "page_url": "https://demo.example.com/payment",
+      "route": "/payment",
+      "event_type": "dwell",
+      "timestamp": "2026-04-09T10:30:42Z",
+      "element_id": "coupon-input",
+      "intent_label": "coupon_apply",
+      "duration_ms": 18200,
+      "metadata": {
+        "coupon_status": "invalid"
+      }
+    },
+    {
+      "session_id": "session_n8x4z9_1712641100",
+      "user_id": "user_玥_1001",
+      "page_url": "https://demo.example.com/cart",
+      "route": "/cart",
+      "event_type": "route_change",
+      "timestamp": "2026-04-09T10:31:00Z",
+      "intent_label": "back_navigation",
+      "duration_ms": 900
+    }
+  ]
+}
