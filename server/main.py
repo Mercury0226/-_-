@@ -50,10 +50,18 @@ class AnomalyResult(BaseModel):
 
 app = FastAPI(
     title="AI-driven UJM Analyzer API",
-    version="0.1.0",
-    description="High-concurrency ingest + AI-ready behavior analysis service",
+    version="0.2.0",
+    description="High-concurrency ingest + AI-ready behavior analysis service (with CV & LLM)",
     default_response_class=JSONResponse,
 )
+
+# ---- 挂载 AI 算法路由 (王顺凯) ----
+try:
+    from algorithm.ai_routes import router as ai_router
+    app.include_router(ai_router)
+except ImportError:
+    import warnings
+    warnings.warn("algorithm 模块未安装，AI 路由已跳过")
 
 
 class LivePointerHub:
