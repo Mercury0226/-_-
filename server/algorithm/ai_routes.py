@@ -27,6 +27,8 @@ from algorithm.ui_recognition import UIRecognizer
 from algorithm.path_vectorizer import PathVectorizer
 from algorithm.behavior_summarizer import BehaviorSummarizer
 from algorithm.anomaly_detector import AnomalyDetector
+from algorithm.report_generator import ReportGenerator
+from algorithm.feedback_store import FeedbackStore
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,8 @@ _recognizer = UIRecognizer()
 _vectorizer = PathVectorizer()
 _summarizer = BehaviorSummarizer()
 _detector = AnomalyDetector()
+_report_generator = ReportGenerator()
+_feedback_store = FeedbackStore()
 
 
 # ============================================================
@@ -79,6 +83,24 @@ class FullAnalysisRequest(BaseModel):
     include_ui_recognition: bool = Field(default=False, description="是否执行 UI 识别（需提供截图）")
     include_behavior_summary: bool = Field(default=True)
     include_anomaly_detection: bool = Field(default=True)
+
+
+class GenerateReportRequest(BaseModel):
+    """综合报告生成请求 (Sprint 2)"""
+    events: list[dict[str, Any]] = Field(..., min_length=1)
+    include_behavior_summary: bool = Field(default=False, description="是否包含行为语义化（需要 LLM）")
+
+
+class FeedbackRequest(BaseModel):
+    """人工反馈请求 (Sprint 2)"""
+    page_url: str = Field(..., description="页面 URL")
+    element_type_predicted: str = Field(..., description="模型预测的元素类型")
+    element_type_corrected: str = Field(..., description="人工校正后的元素类型")
+    label_predicted: str = Field(default="", description="模型预测的标签")
+    label_corrected: str = Field(default="", description="人工校正后的标签")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="模型识别置信度")
+    is_correct: bool = Field(..., description="识别结果是否正确")
+    user_comment: str = Field(default="", description="备注")
 
 
 # ============================================================
@@ -249,3 +271,90 @@ async def full_analysis(req: FullAnalysisRequest) -> dict[str, Any]:
     except Exception as exc:
         logger.error("全量分析失败: %s", exc)
         raise HTTPException(status_code=500, detail=f"全量分析失败: {exc}") from exc
+
+
+# ============================================================
+# Sprint 2 新增路由
+# ============================================================
+
+
+@router.post("/generate-report")
+async def generate_report(req: GenerateReportRequest) -> dict[str, Any]:
+    """
+    综合报告生成接口 (Sprint 2)
+
+    一站式生成包含异常排序 (US-06)、节点热力 (US-07) 的结构化分析报告。
+    """
+    import time
+    start = time.time()
+
+    try:
+        # Step 1: 路径矢量化
+        path_graph = _vectorizer.vectorize(req.events)
+
+        # Step 2: 异常检测
+        anomaly_report = _detector.detect(req.events, path_graph=path_graph)
+
+        # Step 3: 行为语义化 (可选)
+        behavior_summary = None
+        if req.include_behavior_summary:
+            try:
+                behavior_summary = await _summarizer.summarize(
+                    req.events, path_graph=path_graph,
+                )
+            except Exception as e:
+                logger.warning("行为语义化跳过: %s", e)
+                behavior_summary = {"error": str(e)}
+
+        # Step 4: 生成综合报告
+        report = _report_generator.generate(
+            events=req.events,
+            path_graph=path_graph,
+            anomaly_report=anomaly_report,
+            behavior_summary=behavior_summary,
+        )
+
+        elapsed_ms = (time.time() - start) * 1000
+        return {
+            "ok": True,
+            "report": report,
+            "processing_time_ms": round(elapsed_ms, 1),
+        }
+    except Exception as exc:
+        logger.error("报告生成失败: %s", exc)
+        raise HTTPException(status_code=500, detail=f"报告生成失败: {exc}") from exc
+
+
+@router.post("/feedback")
+async def submit_feedback(req: FeedbackRequest) -> dict[str, Any]:
+    """
+    提交人工校正反馈 (Sprint 2 - US-08)
+
+    记录用户对 UI 识别结果的校正，用于持续优化模型。
+    """
+    try:
+        result = _feedback_store.add_feedback(
+            page_url=req.page_url,
+            element_type_predicted=req.element_type_predicted,
+            element_type_corrected=req.element_type_corrected,
+            label_predicted=req.label_predicted,
+            label_corrected=req.label_corrected,
+            confidence=req.confidence,
+            is_correct=req.is_correct,
+            user_comment=req.user_comment,
+        )
+        return {"ok": True, **result}
+    except Exception as exc:
+        logger.error("反馈提交失败: %s", exc)
+        raise HTTPException(status_code=500, detail=f"反馈提交失败: {exc}") from exc
+
+
+@router.get("/feedback/stats")
+async def get_feedback_stats() -> dict[str, Any]:
+    """
+    获取识别准确率统计 (Sprint 2 - US-08)
+
+    返回基于人工反馈计算的识别准确率指标。
+    """
+    stats = _feedback_store.get_accuracy_stats()
+    return {"ok": True, "stats": stats}

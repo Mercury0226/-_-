@@ -50,8 +50,8 @@ class AnomalyResult(BaseModel):
 
 app = FastAPI(
     title="AI-driven UJM Analyzer API",
-    version="0.2.0",
-    description="High-concurrency ingest + AI-ready behavior analysis service (with CV & LLM)",
+    version="0.3.0",
+    description="AI-driven UJM Analyzer: CV, LLM, report generation & feedback (Sprint 2)",
     default_response_class=JSONResponse,
 )
 
